@@ -1,30 +1,24 @@
-const fs = require('fs');
-const readline = require('readline');
-const {google} = require('googleapis');
+const { google } = require('googleapis');
 const express = require('express');
+const fs = require('fs');
+const dotenv = require('dotenv');
+
+dotenv.config(); 
 
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 const TOKEN_PATH = 'token.json';
 const app = express();
 const PORT = 3000;
 
+const { CLIENT_SECRET, CLIENT_ID } = process.env;
 
-fs.readFile('credentials.json', (err, content) => {
-    if (err) return console.log('Error loading client secret file:', err);
+const oAuth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, 'http://localhost:3000/auth/google/callback');
 
-    authorize(JSON.parse(content), listLast200Emails);
+fs.readFile('token.json', (err, token) => {
+    if (err) return getNewToken(oAuth2Client, listLast200Emails);
+    oAuth2Client.setCredentials(JSON.parse(token));
+    listLast200Emails(oAuth2Client);
 });
-
-function authorize(credentials, callback) {
-    const {client_secret, client_id, redirect_uris} = credentials.installed;
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
-
-    fs.readFile(TOKEN_PATH, (err, token) => {
-        if (err) return getNewToken(oAuth2Client, callback);
-        oAuth2Client.setCredentials(JSON.parse(token));
-        callback(oAuth2Client);
-    });
-}
 
 function getNewToken(oAuth2Client, callback) {
     const authUrl = oAuth2Client.generateAuthUrl({
@@ -51,7 +45,7 @@ function getNewToken(oAuth2Client, callback) {
 }
 
 function listLast200Emails(auth) {
-    const gmail = google.gmail({version: 'v1', auth});
+    const gmail = google.gmail({ version: 'v1', auth });
     gmail.users.messages.list({
         userId: 'me',
         maxResults: 200,
